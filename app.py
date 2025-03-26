@@ -1,42 +1,47 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import PyPDF2
 import openai
+from io import BytesIO
 
-st.set_page_config(page_title="AI PDF 제목 생성기", page_icon="📄")
-st.title("📄 PDF 자동 제목 생성기")
-st.markdown("PDF를 업로드하면 AI가 내용을 요약하고 제목을 제안해줍니다.")
+# OpenAI API 키 입력 (본인의 키로 바꿔주세요)
+openai.api_key = st.secrets["openai_api_key"]
 
-# 사용자에게 OpenAI API 키 입력 받기
-openai_api_key = st.text_input("🔑 OpenAI API 키 입력", type="password")
+st.set_page_config(page_title="삼성노트 AI제목생성기", layout="centered")
+st.title("📄 삼성노트 AI제목생성기")
+st.write("PDF 파일을 업로드하면 AI가 내용을 분석해 자동으로 제목을 지어드립니다.")
 
-uploaded_file = st.file_uploader("📄 PDF 파일 업로드", type=["pdf"])
+uploaded_file = st.file_uploader("PDF 파일을 선택하세요", type=["pdf"])
 
-if openai_api_key and uploaded_file is not None:
-    with st.spinner("PDF 내용 분석 중..."):
-        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
+def extract_text_from_pdf(file):
+    reader = PyPDF2.PdfReader(file)
+    text = ""
+    for page in reader.pages[:3]:  # 앞 3페이지만 읽기
+        text += page.extract_text()
+    return text
 
-        preview = text[:1500]  # 너무 길면 모델 입력 초과
+def generate_title(text):
+    prompt = f"다음 문서 내용을 바탕으로 간결하고 직관적인 제목을 지어줘:\n\n{text}\n\n제목:"
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.5,
+        max_tokens=30
+    )
+    title = response['choices'][0]['message']['content'].strip().replace(":", "").replace("?", "")
+    return title
 
-        try:
-            openai.api_key = openai_api_key
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "당신은 문서 내용을 요약하고, 적절한 제목을 붙이는 AI 비서입니다."},
-                    {"role": "user", "content": f"다음 PDF 내용을 보고, 간결하고 적절한 제목을 하나만 만들어줘:\n\n{preview}"}
-                ]
-            )
-            title = response.choices[0].message.content.strip()
+if uploaded_file:
+    with st.spinner("제목을 생성 중입니다..."):
+        text = extract_text_from_pdf(uploaded_file)
+        title = generate_title(text)
 
-            st.success("제목 생성 완료!")
-            st.markdown(f"**📌 추천 제목:** {title}")
-            st.code(title, language="text")
-            st.info("제목을 길게 눌러 복사하거나 수동으로 복사해 주세요.")
-        except Exception as e:
-            st.error(f"❌ 오류 발생: {str(e)}")
-
-elif uploaded_file and not openai_api_key:
-    st.warning("🔑 OpenAI API 키를 먼저 입력해 주세요.")
+        # 새 이름으로 저장
+        uploaded_file.seek(0)  # 파일 처음으로 이동
+        new_pdf = BytesIO(uploaded_file.read())
+        st.success(f"📌 추천 제목: **{title}**")
+        st.download_button(
+            label="📅 제목이 적용된 PDF 다운로드",
+            data=new_pdf,
+            file_name=f"{title}.pdf",
+            mime="application/pdf"
+        )
