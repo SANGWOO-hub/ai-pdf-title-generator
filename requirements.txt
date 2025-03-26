@@ -1,4 +1,3 @@
 streamlit
-pymupdf
-transformers
-pyperclip
+PyPDF2
+openai
