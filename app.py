@@ -1,10 +1,10 @@
 import streamlit as st
 import PyPDF2
-import openai
+from openai import OpenAI
 from io import BytesIO
 
 # OpenAI API 키 입력 (본인의 키로 바꿔주세요)
-openai.api_key = st.secrets["openai_api_key"]
+client = OpenAI(api_key=st.secrets["openai_api_key"])
 
 st.set_page_config(page_title="삼성노트 AI제목생성기", layout="centered")
 st.title("📄 삼성노트 AI제목생성기")
@@ -21,13 +21,13 @@ def extract_text_from_pdf(file):
 
 def generate_title(text):
     prompt = f"다음 문서 내용을 바탕으로 간결하고 직관적인 제목을 지어줘:\n\n{text}\n\n제목:"
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.5,
         max_tokens=30
     )
-    title = response['choices'][0]['message']['content'].strip().replace(":", "").replace("?", "")
+    title = response.choices[0].message.content.strip().replace(":", "").replace("?", "")
     return title
 
 if uploaded_file:
@@ -40,7 +40,7 @@ if uploaded_file:
         new_pdf = BytesIO(uploaded_file.read())
         st.success(f"📌 추천 제목: **{title}**")
         st.download_button(
-            label="📅 제목이 적용된 PDF 다운로드",
+            label="📥 제목이 적용된 PDF 다운로드",
             data=new_pdf,
             file_name=f"{title}.pdf",
             mime="application/pdf"
