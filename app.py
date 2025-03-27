@@ -15,7 +15,7 @@ uploaded_file = st.file_uploader("PDF 파일을 선택하세요", type=["pdf"])
 def extract_text_from_pdf(file):
     reader = PyPDF2.PdfReader(file)
     text = ""
-    for page in reader.pages[:3]:  # 앞 3페이지만 읽기
+    for page in reader.pages[:1]:  # 앞 1페이지만 읽기로 변경
         text += page.extract_text()
     return text
 
